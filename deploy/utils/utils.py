@@ -15,14 +15,14 @@ def run_by_system(command, is_sudo):
         return status_code
 
 def run_by_subprocess(command, is_sudo):
-    log_debug('running command')
+#    log_debug('running command')
 #    log_debug(command)
 #    log_debug(is_sudo)
     command_log = ''
     error_log = ''
     if is_sudo:
         command = 'echo %s|sudo -S %s' % (sudo_password,command)
-    log_debug(command)
+#    log_debug(command)
     d = subprocess.Popen(command,
                         stdin=subprocess.PIPE,
                         stderr=subprocess.PIPE,
@@ -38,8 +38,8 @@ def run_by_subprocess(command, is_sudo):
             #error_log += error
         else:
             break
-    log_debug('command_log is:')
-    log_debug(command_log)
+#    log_debug('command_log is:')
+#    log_debug(command_log)
 #    log_debug('error_log is:')
 #    log_debug(error_log)
     return command_log,error_log

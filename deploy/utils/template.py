@@ -271,7 +271,7 @@ def docker_compose_gen(orderer_num=1,org_num=1,peer_num=1,ca_num=0,couchdb_num=0
     restart: always
     container_name: ordererNUM.example.com
     environment:
-      - CORE_VM_DOCKER_HOSTCONFIG_NETWORKMODE=worker_fabricnetwork
+      - CORE_VM_DOCKER_HOSTCONFIG_NETWORKMODE=graduate_fabricnetwork
       - ORDERER_GENERAL_LOGLEVEL=error
       - ORDERER_GENERAL_LISTENADDRESS=0.0.0.0
       - ORDERER_GENERAL_LISTENPORT=7050
@@ -353,7 +353,7 @@ def docker_compose_gen(orderer_num=1,org_num=1,peer_num=1,ca_num=0,couchdb_num=0
       # the following setting starts chaincode containers on the same
       # bridge network as the peers
       # https://docs.docker.com/compose/networking/
-      - CORE_VM_DOCKER_HOSTCONFIG_NETWORKMODE=worker_fabricnetwork
+      - CORE_VM_DOCKER_HOSTCONFIG_NETWORKMODE=graduate_fabricnetwork
       #- CORE_LOGGING_LEVEL=ERROR
       - CORE_LOGGING_LEVEL=DEBUG
       - CORE_PEER_TLS_ENABLED=false

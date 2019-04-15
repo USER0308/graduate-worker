@@ -1,8 +1,8 @@
 #!/usr/bin/python
 
 from utils import log_debug, run_by_system, run_by_subprocess
-
-
+import os
+import docker
     
 def check_exist(check_command):
     if_exist = run_by_system(command=check_command, is_sudo=False)
@@ -13,6 +13,9 @@ def install(check_command, install_command):
     is_exist = check_exist(check_command)
     if is_exist == 127:
         install_log, error_log = run_by_subprocess(command=install_command,is_sudo=True)
+        return install_log, error_log
+    else:
+        return 'already exist', ''
 #        log_debug('stderr is: \n')
 #        for line in error_log:
 #            log_debug(error_log)
@@ -32,7 +35,8 @@ def uninstall(check_command, uninstall_command):
 def install_curl():
     check_command = 'command -v curl'
     install_command = 'apt install -y curl'
-    install(check_command, install_command)
+    install_log, error_log = install(check_command, install_command)
+    return install_log, error_log
 
 def uninstall_curl():
     check_command = 'command -v curl'
@@ -43,7 +47,8 @@ def install_docker():
     install_curl()  # docker depends on curl to install
     check_command = 'command -v docker'
     install_command = 'curl -sSL https://get.docker.com/ | sh;'
-    install(check_command, install_command)
+    install_log, error_log = install(check_command, install_command)
+    return install_log, error_log
 
 def uninstall_docker():
     check_command = 'command -v docker'
@@ -54,11 +59,12 @@ def add_user_to_docker():  # need to logout/login
     get_user_command = 'whoami'
     command_log, error_log = run_by_subprocess(get_user_command, False)
     username = command_log
-    log_debug(username)
+    # log_debug(username)
     add_user_to_docker_command = 'usermod -aG docker ' + username
     command_log, error_log = run_by_subprocess(add_user_to_docker_command, True)
-    log_debug(command_log)
-    log_debug(error_log)
+    # log_debug(command_log)
+    # log_debug(error_log)
+    return command_log, error_log
 
 def check_user_in_docker_group():
     get_user_command = 'whoami'
@@ -75,7 +81,8 @@ def check_user_in_docker_group():
 def install_pip():
     check_command = 'command -v pip'
     install_command = 'apt install -y python-pip'
-    install(check_command, install_command)
+    install_log, error_log = install(check_command, install_command)
+    return install_log, error_log
 
 def uninstall_pip():
     check_command = 'command -v pip'
@@ -84,9 +91,10 @@ def uninstall_pip():
 
 def install_pydocker():
     install_pip()
-    check_command = ''  ## TODO
+    check_command = 'pip list | grep "docker " '  ## with a space in the end
     install_command = 'pip install docker'
-    install(check_command=check_command, install_command=install_command)
+    install_log, error_log = install(check_command=check_command, install_command=install_command)
+    return install_log, error_log
 
 def uninstall_pydocker():
     check_command = ''
@@ -97,7 +105,8 @@ def install_compose():
     install_pip()
     check_command = 'command -v docker-compose'
     install_command = 'pip install docker-compose>=1.17.0'
-    install(check_command, install_command)
+    install_log, error_log = install(check_command, install_command)
+    return install_log, error_log
 
 def uninstall_compose():
     check_command = 'command -v docker-compose'
@@ -107,7 +116,7 @@ def uninstall_compose():
 def install_all():
     install_curl()
     install_pip()
-    #install_pydocker()
+    install_pydocker()
     install_docker()
     install_compose()
 
@@ -121,30 +130,49 @@ def uninstall_all():
 def download_img(tag):
     #download_img('x86_64-1.0.0')
     images = ['peer', 'orderer', 'couchdb', 'ccenv', 'javaenv', 'kafka', 'zookeeper', 'tools']
-    is_sudo = True
-    if check_user_in_docker_group():
-        is_sudo = False
-    for image in images:
-        pull_command = 'docker pull hyperledger/fabric-'+image+':'+tag
-        log_debug(pull_command)
-        command_log, error_log = run_by_subprocess(pull_command, is_sudo)
+#    is_sudo = True
+#    if check_user_in_docker_group():
+#        is_sudo = False
+#    for image in images:
+#        pull_command = 'docker pull hyperledger/fabric-'+image+':'+tag
+        # log_debug(pull_command)
+#        command_log, error_log = run_by_subprocess(pull_command, is_sudo)
         # deal with command_log, error_log
-        change_tag_command = 'docker tag hyperledger/fabric-'+image+':'+tag+' hyperledger/fabric-'+image
-        log_debug(change_tag_command)
-        command_log, error_log = run_by_subprocess(change_tag_command, is_sudo)
+#        change_tag_command = 'docker tag hyperledger/fabric-'+image+':'+tag+' hyperledger/fabric-'+image
+        # log_debug(change_tag_command)
+#        command_log, error_log = run_by_subprocess(change_tag_command, is_sudo)
+
+    client = docker.from_env()    
+    for image in images:
+        image_name = 'hyperledger/fabric-' + image
+        img = client.images.pull(image_name, tag)
+        #old_tag = image_name+':'+tag
+        #log_debug("tagging from {} to {}".format(old_tag, image_name))
+        #img.tag(old_tag, image_name)
+        
 
 def download_ca(tag):
     #download_ca('x86_64-1.0.0')
-    pull_command = 'docker pull hyperledger/fabric-ca:'+tag
-    command_log, error_log = run_by_subprocess(pull_command, True)
+#    pull_command = 'docker pull hyperledger/fabric-ca:'+tag
+#    command_log, error_log = run_by_subprocess(pull_command, True)
     # deal with command_log,error_log
-    change_tag_command = 'docker tag hyperledger/fabric-ca:'+tag+' hyperledger/fabric-ca'
-    run_by_subprocess(change_tag_command, True)
+#    change_tag_command = 'docker tag hyperledger/fabric-ca:'+tag+' hyperledger/fabric-ca'
+#    run_by_subprocess(change_tag_command, True)
+
+    client = docker.from_env()
+    image_name = 'hyperledger/fabric-ca'
+    img = client.images.pull(image_name, tag)
+    #old_tag = image_name + ':' + tag
+    #img.tag(old_tag, image_name)
 
 def download_binary():
-    command = 'curl https://nexus.hyperledger.org/content/repositories/releases/org/hyperledger/fabric/hyperledger-fabric/linux-amd64-1.0.0/hyperledger-fabric-linux-amd64-1.0.0.tar.gz | tar xz'
-    command_log, error_log = run_by_subprocess(command, True)
-    # deal with command_log, error_log
+    if not os.path.exists('./bin/peer'):
+        command = 'curl https://nexus.hyperledger.org/content/repositories/releases/org/hyperledger/fabric/hyperledger-fabric/linux-amd64-1.0.0/hyperledger-fabric-linux-amd64-1.0.0.tar.gz | tar xz'
+        command_log, error_log = run_by_subprocess(command, True)
+        return install_log, error_log
+    else:
+        return 'binary was already downloaded', ''
+        # deal with command_log, error_log
 
 
 def list_images():

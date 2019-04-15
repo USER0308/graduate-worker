@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 import os
+import docker
 from utils import log_debug, run_by_system, run_by_subprocess
 
 
@@ -20,6 +21,7 @@ def prepare():  # check the path and config file and binary if exists
         log_debug('bin/cryptogen file is a path, maybe you should download binary first')
     if not os.path.isfile('./bin/configtxgen'):
         log_debug('bin/configtxgen is a path, maybe you should download binary first')
+
 
 #    if not os.path.exists('./tempOrgtempOrder'):
 #        log_debug('./tempOrgtempOrder path not exist, creating')
@@ -42,6 +44,12 @@ def prepare():  # check the path and config file and binary if exists
     if not os.path.exists('./crypto-config/'):
         log_debug('./crypto-config/ is not exist, creating')
         os.mkdir('./crypto-config/')
+    if not os.path.exists('./chaincode/'):
+        log_debug('./chaincode/ is not exist, creating')
+        os.mkdir('./chaincode/')
+    if not os.path.exists('./scripts/'):
+        log_debug('./scripts/ is not exist, creating')
+        os.mkdir('./scripts/')
 
 
 
@@ -55,54 +63,91 @@ def clean_config():
     run_by_system(command, True)
 
 def crypto_material_gen():  ## output normally
-    command = """cryptogen generate --config=./crypto-config.yaml"""
+    command = """./bin/cryptogen generate --config=./crypto-config.yaml"""
     command_log, error_log = run_by_subprocess(command, False)
-    log_debug(command_log)
-    log_debug(error_log)
+    # log_debug(command_log)
+    # log_debug(error_log)
 
 def orderer_genesis_block_gen():  ## no output...
     current_path = os.getcwd()
-    log_debug('current path is:')
-    log_debug(current_path)
+#    log_debug('current path is:')
+#    log_debug(current_path)
     env = 'FABRIC_CFG_PATH=' + current_path + ' '
-    command = env + """configtxgen -profile OrdererGenesis -outputBlock ./channel-artifacts/genesis.block"""
+    command = env + """./bin/configtxgen -profile OrdererGenesis -outputBlock ./channel-artifacts/genesis.block"""
     command_log, error_log = run_by_subprocess(command, False)
-    log_debug(command_log)
-    log_debug(error_log)
+    # log_debug(command_log)
+    # log_debug(error_log)
 
 def channel_config_trans_gen():  ## no output...
     current_path = os.getcwd()
     env = 'FABRIC_CFG_PATH=' + current_path + ' '
-    command = env + """configtxgen -profile Channel -outputCreateChannelTx ./channel-artifacts/channel.tx -channelID mychannel"""
+    command = env + """./bin/configtxgen -profile Channel -outputCreateChannelTx ./channel-artifacts/channel.tx -channelID mychannel"""
     command_log, error_log = run_by_subprocess(command, False)
-    log_debug(command_log)
-    log_debug(error_log)
+    # log_debug(command_log)
+    # log_debug(error_log)
 
-def anchor_peer_config_gen():  ## no output...
+def anchor_peer_config_gen(org_num=2):  ## no output...
     current_path = os.getcwd()
     env = 'FABRIC_CFG_PATH=' + current_path + ' '
-    command1 = env + """configtxgen -profile Channel -outputAnchorPeersUpdate ./channel-artifacts/Org1MSPanchors.tx -channelID mychannel -asOrg Org1MSP"""
-    command2 = env + """configtxgen -profile Channel -outputAnchorPeersUpdate ./channel-artifacts/Org2MSPanchors.tx -channelID mychannel -asOrg Org2MSP"""
-    command_log, error_log = run_by_subprocess(command1, False)
-    log_debug(command_log)
-    log_debug(error_log)
+    command = env + """./bin/configtxgen -profile Channel -outputAnchorPeersUpdate ./channel-artifacts/OrgXMSPanchors.tx -channelID mychannel -asOrg OrgXMSP"""
+    for i in range(1, org_num+1):
+        command = command.replace('rgX', 'rg'+str(i))
+        command_log, error_log = run_by_subprocess(command, False)
+    # log_debug(command_log)
+    # log_debug(error_log)
 
-    command_log, error_log = run_by_subprocess(command2, False)
-    log_debug(command_log)
-    log_debug(error_log)
 
-def create_channel():
-    command = """docker exec cli peer channel create -o orderer.example.com:7050 -c mychannel -f ./channel-artifacts/channel.tx"""
-    command_log, error_log = run_by_subprocess(command, False)
-    log_debug(command_log)
-    log_debug(error_log)
+def create_channel(orderer_num=1):
+#    command = ''
+#    if orderer_num == 1:
+#        command = """docker exec cli peer channel create -o orderer.example.com:7050 -c mychannel -f ./channel-artifacts/channel.tx"""
+#    elif orderer_num > 1:
+#        command = """docker exec cli peer channel create -t 20 -o orderer1.example.com:7050 -c mychannel -f ./channel-artifacts/channel.tx"""
+    #    print 'running command ' + command
+    #print 'outthere, command is ' + command
+#    command_log, error_log = run_by_subprocess(command, False)
+#    log_debug(command_log)
+#    log_debug(error_log)
+
+    client = docker.from_env()
+    cli = client.containers.get('cli')
+    command = """peer channel create -o orderer.example.com:7050 -c mychannel -f ./channel-artifacts/channel.tx"""
+    if orderer_num > 1:
+        command = """peer channel create -t 20 -o orderer1.example.com:7050 -c mychannel -f ./channel-artifacts/channel.tx"""
+    exit_code, output = cli.exec_run(cmd=command)
+    print exit_code, output
+    return exit_code, output
 
 def join_peer(peer_num=2,org_num=2):
     ## make all peer join (01,02,11,12)
-    peer_address_env = """-e CORE_PEER_ADDRESS=peerX.orgY.example.com:7051 """
-    cert_file_env = """-e CORE_PEER_TLS_ROOTCERT_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/orgY.example.com/peerX.orgY.example.com/tls/ca.crt """
-    msp_path_env = """-e CORE_PEER_MSPCONFIGPATH=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/orgY.example.com/users/Admin@orgY.example.com/msp """
-    msp_id_env = """-e CORE_PEER_LOCALMSPID="OrgYMSP" """
+#    peer_address_env = """-e CORE_PEER_ADDRESS=peerX.orgY.example.com:7051 """
+#    cert_file_env = """-e CORE_PEER_TLS_ROOTCERT_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/orgY.example.com/peerX.orgY.example.com/tls/ca.crt """
+#    msp_path_env = """-e CORE_PEER_MSPCONFIGPATH=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/orgY.example.com/users/Admin@orgY.example.com/msp """
+#    msp_id_env = """-e CORE_PEER_LOCALMSPID="OrgYMSP" """
+#    for x in range(0,peer_num):  # each org has x peers
+#        for y in range(1,org_num+1):  # total y orgs
+#            env1 = peer_address_env.replace('peerX', ('peer'+str(x)))
+#            env1 = env1.replace('rgY', ('rg'+str(y)))
+
+#            env2 = cert_file_env.replace('peerX', ('peer'+str(x)))
+#            env2 = cert_file_env.replace('rgY', ('rg'+str(y)))
+
+#            env3 = msp_path_env.replace('peerX', ('peer'+str(x)))
+#            env3 = msp_path_env.replace('rgY', ('rg'+str(y)))
+            
+ #           env4 = msp_id_env.replace('rgY', ('rg'+str(y)))
+            
+ #           command = """docker exec """ + env1 + env2 + env3 + env4 + """ cli peer channel join -b mychannel.block"""
+ #           command_log, error_log = run_by_subprocess(command, False)
+
+
+    client = docker.from_env()
+    cli = client.containers.get('cli')
+    peer_address_env = """CORE_PEER_ADDRESS=peerX.orgY.example.com:7051"""
+    cert_file_env = """CORE_PEER_TLS_ROOTCERT_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/orgY.example.com/peerX.orgY.example.com/tls/ca.crt"""
+    msp_path_env = """CORE_PEER_MSPCONFIGPATH=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/orgY.example.com/users/Admin@orgY.example.com/msp"""
+    msp_id_env = 'CORE_PEER_LOCALMSPID=OrgYMSP'
+    results = []
     for x in range(0,peer_num):  # each org has x peers
         for y in range(1,org_num+1):  # total y orgs
             env1 = peer_address_env.replace('peerX', ('peer'+str(x)))
@@ -115,27 +160,46 @@ def join_peer(peer_num=2,org_num=2):
             env3 = msp_path_env.replace('rgY', ('rg'+str(y)))
             
             env4 = msp_id_env.replace('rgY', ('rg'+str(y)))
-            
-            command = """docker exec """ + env1 + env2 + env3 + env4 + """ cli peer channel join -b mychannel.block"""
-            command_log, error_log = run_by_subprocess(command, False)
+            command = """peer channel join -b mychannel.block"""
+            exit_code, output = cli.exec_run(cmd=command, environment=[env1, env2, env3, env4])
+            results.append([exit_code, output])
+    return results
 
-    
-    # peer0 org1 join
-    #env1 = """-e CORE_PEER_ADDRESS=peer0.org1.example.com:7051 """
-    #env2 = """-e CORE_PEER_TLS_ROOTCERT_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/org1.example.com/peer0.org1.example.com/tls/ca.crt """
-    #env3 = """-e CORE_PEER_MSPCONFIGPATH=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp """
-    #env4 = """-e CORE_PEER_LOCALMSPID="Org1MSP" """
-    #command = """echo peer channel join -b mychannel.block | docker exec -it cli """
-    #command_log, error_log = run_by_subprocess(command, False)
-    #log_debug(command_log)
-    #log_debug(error_log)
 
 def install_chaincode(peer_num=2, org_num=2):
+    # check chaincode file exist
+    files = os.listdir('./chaincode/')
+    if len(files) < 1:
+        print 'no chaincode file exists'
+        return [[1, 'no chaincode file exists']]
     ## make all peer install chaincode
-    peer_address_env = """-e CORE_PEER_ADDRESS=peerX.orgY.example.com:7051 """
-    cert_file_env = """-e CORE_PEER_TLS_ROOTCERT_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/orgY.example.com/peerX.orgY.example.com/tls/ca.crt """
-    msp_path_env = """-e CORE_PEER_MSPCONFIGPATH=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/orgY.example.com/users/Admin@orgY.example.com/msp """
-    msp_id_env = """-e CORE_PEER_LOCALMSPID="OrgYMSP" """
+#    peer_address_env = """-e CORE_PEER_ADDRESS=peerX.orgY.example.com:7051 """
+#    cert_file_env = """-e CORE_PEER_TLS_ROOTCERT_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/orgY.example.com/peerX.orgY.example.com/tls/ca.crt """
+#    msp_path_env = """-e CORE_PEER_MSPCONFIGPATH=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/orgY.example.com/users/Admin@orgY.example.com/msp """
+#    msp_id_env = """-e CORE_PEER_LOCALMSPID="OrgYMSP" """
+#    for x in range(0,peer_num):  # each org has x peers
+#        for y in range(1,org_num+1):  # total y orgs
+#            env1 = peer_address_env.replace('peerX', ('peer'+str(x)))
+#            env1 = env1.replace('rgY', ('rg'+str(y)))
+
+#            env2 = cert_file_env.replace('peerX', ('peer'+str(x)))
+#            env2 = cert_file_env.replace('rgY', ('rg'+str(y)))
+
+#            env3 = msp_path_env.replace('peerX', ('peer'+str(x)))
+#            env3 = msp_path_env.replace('rgY', ('rg'+str(y)))
+            
+#            env4 = msp_id_env.replace('rgY', ('rg'+str(y)))
+            
+#            command = """docker exec """ + env1 + env2 + env3 + env4 + """ cli peer chaincode install -n mycc -v 1.0 -p github.com/hyperledger/fabric/examples/chaincode/go/"""
+ #           command_log, error_log = run_by_subprocess(command, False)
+
+    client = docker.from_env()
+    cli = client.containers.get('cli')
+    peer_address_env = """CORE_PEER_ADDRESS=peerX.orgY.example.com:7051"""
+    cert_file_env = """CORE_PEER_TLS_ROOTCERT_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/orgY.example.com/peerX.orgY.example.com/tls/ca.crt"""
+    msp_path_env = """CORE_PEER_MSPCONFIGPATH=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/orgY.example.com/users/Admin@orgY.example.com/msp"""
+    msp_id_env = 'CORE_PEER_LOCALMSPID=OrgYMSP'
+    results = []
     for x in range(0,peer_num):  # each org has x peers
         for y in range(1,org_num+1):  # total y orgs
             env1 = peer_address_env.replace('peerX', ('peer'+str(x)))
@@ -149,29 +213,55 @@ def install_chaincode(peer_num=2, org_num=2):
             
             env4 = msp_id_env.replace('rgY', ('rg'+str(y)))
             
-            command = """docker exec """ + env1 + env2 + env3 + env4 + """ cli peer chaincode install -n mycc -v 1.0 -p github.com/hyperledger/fabric/examples/chaincode/go/"""
-            command_log, error_log = run_by_subprocess(command, False)
-
-    # peer0 org1 install
-    #command = """docker exec cli peer chaincode install -n mycc -v 1.0 -p github.com/hyperledger/fabric/examples/chaincode/go/"""
-    #command_log, error_log = run_by_subprocess(command, False)
-    #log_debug(command_log)
-    #log_debug(error_log)
+            command = """peer chaincode install -n mycc -v 1.0 -p github.com/hyperledger/fabric/examples/chaincode/go/"""
+            exit_code, output = cli.exec_run(cmd=command, environment=[env1, env2, env3, env4])
+            results.append([exit_code, output])
+    return results
 
 
 
-def instantiate_chaincode():
+def instantiate_chaincode(orderer_num=1):
+    # check chaincode if exist
+    
     ##make chaincode instantiate once
-    command = r'''docker exec cli peer chaincode instantiate -o orderer.example.com:7050 -C mychannel -n mycc -v 1.0 -c '{"Args":["init","a","100","b","200"]}' -P "OR ('Org1MSP.member','Org2MSP.member')" '''
-    command_log, error_log = run_by_subprocess(command, False)
-    log_debug(command_log)
-    log_debug(error_log)
+#    command = r'''docker exec cli peer chaincode instantiate -o orderer.example.com:7050 -C mychannel -n mycc -v 1.0 -c '{"Args":["init","a","100","b","200"]}' -P "OR ('Org1MSP.member','Org2MSP.member')" '''
+#    if orderer_num > 1:
+#        command = r'''docker exec cli peer chaincode instantiate -o orderer1.example.com:7050 -C mychannel -n mycc -v 1.0 -c '{"Args":["init","a","100","b","200"]}' -P "OR ('Org1MSP.member','Org2MSP.member')" '''
+#    command_log, error_log = run_by_subprocess(command, False)
 
+
+    command = r'''peer chaincode instantiate -o orderer.example.com:7050 -C mychannel -n mycc -v 1.0 -c '{"Args":["init","a","100","b","200"]}' -P "OR ('Org1MSP.member','Org2MSP.member')" '''
+    if orderer_num > 1:
+        command = r'''peer chaincode instantiate -o orderer1.example.com:7050 -C mychannel -n mycc -v 1.0 -c '{"Args":["init","a","100","b","200"]}' -P "OR ('Org1MSP.member','Org2MSP.member')" '''
+    client = docker.from_env()
+    cli = client.containers.get('cli')
+    exit_code, output = cli.exec_run(cmd=command)
+    return exit_code, output
+
+def invoke_chaincode():
+    pass
+
+def query_chaincode():
+#    command = r'''docker exec cli peer chaincode query -C mychannel -n mycc -v 1.0 -c '{"Args":["query","a"]}' '''
+#    command_log, error_log = run_by_subprocess(command, False)
+#    log_debug(command_log)
+#    log_debug(error_log)
+#    command_log = command_log.strip()
+#    error_log = error_log.strip()
+#    if error_log:
+#        return command_log, error_log
+#    return command_log, ''
+
+    client = docker.from_env()
+    cli = client.containers.get('cli')
+    command = r'''peer chaincode query -C mychannel -n mycc -v 1.0 -c '{"Args":["query","a"]}' '''
+    exit_code, output = cli.exec_run(cmd=command)
+    return exit_code, output
 def yaml_up():
     command = """CHANNEL_NAME=mychannel TIMEOUT=60 docker-compose -f docker-compose.yaml up -d"""
     command_log, error_log = run_by_subprocess(command, False)
-    log_debug(command_log)
-    log_debug(error_log)
+#    log_debug(command_log)
+#    log_debug(error_log)
 
 def network_up():
     #yaml_up()
