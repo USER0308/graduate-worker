@@ -1,7 +1,7 @@
 #!/usr/bin/python
 
 import os
-from utils import log_debug
+from deploy.utils.utils import log_debug
 
 
 def configtx_gen(orderer_num=1,org_num=1,peer_num=1,ca_num=0,couchdb_num=0,cli=1):
@@ -462,9 +462,13 @@ def docker_compose_gen(orderer_num=1,org_num=1,peer_num=1,ca_num=0,couchdb_num=0
     networks:
       - fabricnetwork"""
         depandency = 'depends_on:\n'
-        for i in range(1,orderer_num+1):
-            de = '      - orderer' + str(i) +'.example.com'
+        if orderer_num == 1:
+            de = '      - orderer.example.com'
             depandency += (de+'\n')
+        else:
+            for i in range(1,orderer_num+1):
+                de = '      - orderer' + str(i) +'.example.com'
+                depandency += (de+'\n')
         for x in range(0,peer_num):
             for y in range(1,org_num+1):
                 de = '      - peer'+str(x)+'.org'+str(y)+'.example.com'

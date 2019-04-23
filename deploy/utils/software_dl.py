@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-from utils import log_debug, run_by_system, run_by_subprocess
+from deploy.utils.utils import log_debug, run_by_system, run_by_subprocess
 import os
 import docker
     
@@ -21,16 +21,16 @@ def install(check_command, install_command):
 #            log_debug(error_log)
 #        log_debug('install logs are:\n')
 #        for line in install_log:
-#            print install_log
+#            print(install_log)
 
 def uninstall(check_command, uninstall_command):
     is_exist = check_exist(check_command)
     if is_exist == 0:
         uninstall_result = run_by_system(command=uninstall_command, is_sudo=True)
         if uninstall_result == 0:
-            print 'uninstall sucessfully'
+            print('uninstall sucessfully')
     else:
-        print 'not installed yet'
+        print('not installed yet')
 
 def install_curl():
     check_command = 'command -v curl'

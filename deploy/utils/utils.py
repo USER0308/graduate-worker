@@ -4,7 +4,7 @@ from deploy.config.config import debug, sudo_password
 
 def log_debug(message):
     if debug == True:
-        print message
+        print(message)
 
 def run_by_system(command, is_sudo):
     if is_sudo:

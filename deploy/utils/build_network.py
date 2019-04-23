@@ -2,7 +2,7 @@
 
 import os
 import docker
-from utils import log_debug, run_by_system, run_by_subprocess
+from deploy.utils.utils import log_debug, run_by_system, run_by_subprocess
 
 
 
@@ -103,8 +103,8 @@ def create_channel(orderer_num=1):
 #        command = """docker exec cli peer channel create -o orderer.example.com:7050 -c mychannel -f ./channel-artifacts/channel.tx"""
 #    elif orderer_num > 1:
 #        command = """docker exec cli peer channel create -t 20 -o orderer1.example.com:7050 -c mychannel -f ./channel-artifacts/channel.tx"""
-    #    print 'running command ' + command
-    #print 'outthere, command is ' + command
+    #    print('running command ' + command)
+    #print('outthere, command is ' + command)
 #    command_log, error_log = run_by_subprocess(command, False)
 #    log_debug(command_log)
 #    log_debug(error_log)
@@ -115,7 +115,7 @@ def create_channel(orderer_num=1):
     if orderer_num > 1:
         command = """peer channel create -t 20 -o orderer1.example.com:7050 -c mychannel -f ./channel-artifacts/channel.tx"""
     exit_code, output = cli.exec_run(cmd=command)
-    print exit_code, output
+    print(exit_code, output)
     return exit_code, output
 
 def join_peer(peer_num=2,org_num=2):
@@ -170,7 +170,7 @@ def install_chaincode(peer_num=2, org_num=2):
     # check chaincode file exist
     files = os.listdir('./chaincode/')
     if len(files) < 1:
-        print 'no chaincode file exists'
+        print('no chaincode file exists')
         return [[1, 'no chaincode file exists']]
     ## make all peer install chaincode
 #    peer_address_env = """-e CORE_PEER_ADDRESS=peerX.orgY.example.com:7051 """
