@@ -49,7 +49,7 @@ class Monitor:
 
 if __name__ == '__main__':
     query_installed_chaincode()
-    query_intantiated_chaincode()
+    query_instantiated_chaincode()
     query_channel()
     get_channel_config()
     query_info()

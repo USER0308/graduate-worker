@@ -148,72 +148,72 @@ def query_chaincode(conn):
 
 def query_installed_cc(conn):
     print('query installed chaincode...')
-    conn.sendall(bytes('query installed chaincode...', encoding='utf-8'))
+    #conn.sendall(bytes('query installed chaincode...', encoding='utf-8'))
     monitor = Monitor()
     output = monitor.query_installed_chaincode()
     conn.sendall(bytes(output, encoding='utf-8'))
-    time.sleep(2)
+    #time.sleep(2)
 
 def query_instantiated_cc(conn):
     print('query instantiated chaincode...')
-    conn.sendall(bytes('query instantiated chaincode...', encoding='utf-8'))
+    #conn.sendall(bytes('query instantiated chaincode...', encoding='utf-8'))
     monitor = Monitor()
     output = monitor.query_instantiated_chaincode()
     conn.sendall(bytes(output, encoding='utf-8'))
-    time.sleep(2)
+    #time.sleep(2)
 
 def query_channel(conn):
     print('query channel...')
-    conn.sendall(bytes('query channel...', encoding='utf-8'))
+    #conn.sendall(bytes('query channel...', encoding='utf-8'))
     monitor = Monitor()
     output = monitor.query_channel()
     conn.sendall(bytes(output, encoding='utf-8'))
-    time.sleep(2)
+    #time.sleep(2)
 
 def get_channel_config(conn):
     print('get channel config...')
-    conn.sendall(bytes('get channel config...', encoding='utf-8'))
+    #conn.sendall(bytes('get channel config...', encoding='utf-8'))
     monitor = Monitor()
     output = monitor.get_channel_config()
     conn.sendall(bytes(output, encoding='utf-8'))
-    time.sleep(2)
+    #time.sleep(2)
 
 def query_info(conn):
     print('query info...')
-    conn.sendall(bytes('query info...', encoding='utf-8'))
+    #conn.sendall(bytes('query info...', encoding='utf-8'))
     monitor = Monitor()
     output = monitor.query_info()
     conn.sendall(bytes(output, encoding='utf-8'))
-    time.sleep(2)
+    #time.sleep(2)
 
 def query_block_by_hash(conn, block_hash):
     print('query block by hash...')
-    conn.sendall(bytes('query block by hash...', encoding='utf-8'))
+    #conn.sendall(bytes('query block by hash...', encoding='utf-8'))
     monitor = Monitor()
     output = monitor.query_block_by_hash(block_hash)
     conn.sendall(bytes(output, encoding='utf-8'))
-    time.sleep(2)
+    #time.sleep(2)
 
 def query_block_by_txid(conn, tx_id):
     print('query block by txid...')
-    conn.sendall(bytes('query block by transaction id...', encoding='utf-8'))
+    #conn.sendall(bytes('query block by transaction id...', encoding='utf-8'))
     monitor = Monitor()
     output = monitor.query_block_by_txid(tx_id)
     conn.sendall(bytes(output, encoding='utf-8'))
-    time.sleep(2)
+    #time.sleep(2)
 
 def query_transaction_by_txid(conn, tx_id):
     print('query transaction by txid...')
-    conn.sendall(bytes('query transaction by tx_id...', encoding='utf-8'))
+    #conn.sendall(bytes('query transaction by tx_id...', encoding='utf-8'))
     monitor = Monitor()
     output = monitor.query_transaction_by_txid(tx_id)
     conn.sendall(bytes(output, encoding='utf-8'))
-    time.sleep(2)
+    #time.sleep(2)
 
 def end_connection(conn):
     print('end')
     conn.sendall(bytes('end', encoding='utf-8'))
-    time.sleep(2)
+    #time.sleep(2)
     conn.close()
 
 def networking():
@@ -226,10 +226,10 @@ def networking():
         client_data = conn.recv(1024)
         print(client_data)
         client_data = client_data.decode()
-        time.sleep(2)
+        #time.sleep(2)
         print('connected...')
-        conn.sendall(bytes('connected...', encoding='utf-8'))
-        time.sleep(2)
+        #conn.sendall(bytes('connected...', encoding='utf-8'))
+        #time.sleep(2)
 
         ## get these data from client...
         orderer_num=1
@@ -317,16 +317,24 @@ def networking():
         if client_data == 'queryInfo':
             query_info(conn)
 
-        if client_data == 'blockHash':
+        if client_data.startswith('blockHash'):
             """\315\364\"==~\230\376\340\355Y\345\334\353\247r\367\237\034!\262\263\266\013\253\302\334,O\243\306#"""
+            h = client_data[11:]
+            print(h)
             block_hash = "\037\031\031\264rW\307\337\307\330=\331\247\317\242\315D\"\025\367\002T\341\265\3578\025\326\340\037\243\312"
             query_block_by_hash(conn, block_hash)
 
-        if client_data == 'blockTxid':
+        if client_data.startswith('blockTxid'):
+            print('in transaction')
+            tid = client_data[11:]
+            print(tid)
             tx_id = "1244b10f878e87a701911c9b6f6e747b6e97833769cb4770dfb544cb9abe348d"
             query_block_by_txid(conn, tx_id)
 
-        if client_data == 'transactionId':
+        if client_data.startswith('transactionId'):
+            print('in transaction')
+            tid = client_data[13:]
+            print(tid)
             tx_id = "1244b10f878e87a701911c9b6f6e747b6e97833769cb4770dfb544cb9abe348d"
             query_transaction_by_txid(conn, tx_id)
 
