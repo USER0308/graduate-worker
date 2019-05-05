@@ -49,19 +49,21 @@ def download_binary(conn):
     conn.sendall(bytes(install_log, encoding='utf-8'))
     time.sleep(2)
 
-def generate_config(conn):
+def generate_config(conn, orderer_num=1, org_num=2, peer_num=2, couchdb_num=1, ca_num=1):
     print('generate config...')
     conn.sendall(bytes('generate crypto-config...', encoding='utf-8'))
-    template.crypto_config_gen(orderer_num=1, org_num=2, peer_num=2, couchdb_num=0, ca_num=0)
+    template.crypto_config_gen(orderer_num, org_num, peer_num, couchdb_num, ca_num)
     time.sleep(2)
     conn.sendall(bytes('generate configtx...', encoding='utf-8'))
-    template.configtx_gen(orderer_num=1, org_num=2, peer_num=2, couchdb_num=0, ca_num=0)
-    time.sleep(2)
-    conn.sendall(bytes('generate docker-compose.yaml...', encoding='utf-8'))
-    template.docker_compose_gen(orderer_num=1, org_num=2, peer_num=2, couchdb_num=0, ca_num=0)
+    template.configtx_gen(orderer_num, org_num, peer_num, couchdb_num, ca_num)
     time.sleep(2)
 
-def generate_material(conn):
+def generate_docker_compose(conn, orderer_num=1, org_num=2, peer_num=2, couchdb_num=1, ca_num=1):
+    conn.sendall(bytes('generate docker-compose.yaml...', encoding='utf-8'))
+    template.docker_compose_gen(orderer_num, org_num, peer_num, couchdb_num, ca_num)
+    time.sleep(2)
+
+def generate_material(conn, org_num=2):
     print('generate_material...')
     conn.sendall(bytes('generate crypto_material...', encoding='utf-8'))
     build_network.prepare()
@@ -74,7 +76,7 @@ def generate_material(conn):
     build_network.channel_config_trans_gen()
     time.sleep(2)
     conn.sendall(bytes('anchor_peer_config', encoding='utf-8'))
-    build_network.anchor_peer_config_gen(org_num=2)
+    build_network.anchor_peer_config_gen(org_num)
     time.sleep(2)
 
 def yaml_up(conn):
@@ -84,10 +86,10 @@ def yaml_up(conn):
     conn.sendall(bytes('network up, sleep for 20s', encoding='utf-8'))
     time.sleep(20)
 
-def create_channel(conn):
+def create_channel(conn, orderer_num=1):
     print('create channel...')
     conn.sendall(bytes('create channel...', encoding='utf-8'))
-    exit_code, output = build_network.create_channel(orderer_num=1)
+    exit_code, output = build_network.create_channel(orderer_num)
     if exit_code == 0:
         conn.sendall(bytes("create channel success\n\n", encoding='utf-8'))
         conn.sendall(output)
@@ -96,10 +98,10 @@ def create_channel(conn):
         conn.sendall(output)
     time.sleep(2)
 
-def join_channel(conn):
+def join_channel(conn, peer_num=2, org_num=2):
     print('join channel...')
     conn.sendall(bytes('join channel...', encoding='utf-8'))
-    results = build_network.join_peer(peer_num=2,org_num=2)
+    results = build_network.join_peer(peer_num,org_num)
     for result in results:
         if result[0] == 0:
             conn.sendall(bytes("join channel success\n\n", encoding='utf-8'))
@@ -109,10 +111,10 @@ def join_channel(conn):
             conn.sendall(result[1])
     time.sleep(2)
 
-def install_chaincode(conn):
+def install_chaincode(conn, peer_num=2, org_num=2):
     print('install chaincode...')
     conn.sendall(bytes('install chaincode...', encoding='utf-8'))
-    results = build_network.install_chaincode(peer_num=2, org_num=2)
+    results = build_network.install_chaincode(peer_num, org_num)
     for result in results:
         if result[0] == 0:
             conn.sendall(bytes("install chaincode success\n\n", encoding='utf-8'))
@@ -122,15 +124,15 @@ def install_chaincode(conn):
             conn.sendall(result[1])
     time.sleep(2)
 
-def instantiate_chaincode(conn):
+def instantiate_chaincode(conn, orderer_num=1):
     print('instantiate chaincode...')
     conn.sendall(bytes('instantiate chaincode...', encoding='utf-8'))
-    exit_code, output = build_network.instantiate_chaincode(orderer_num=1)
+    exit_code, output = build_network.instantiate_chaincode(orderer_num)
     if exit_code == 0:
         conn.sendall(bytes("instantiate chaincode success\n\n", encoding='utf-8'))
         conn.sendall(output)
     else:
-        conn.sendall(bytes("instantiate chaincode faild\n\n"+output, encoding='utf-8'))
+        conn.sendall(bytes("instantiate chaincode faild\n\n", encoding='utf-8'))
         conn.sendall(output)
     time.sleep(2)
 
@@ -190,24 +192,36 @@ def query_block_by_hash(conn, block_hash):
     print('query block by hash...')
     #conn.sendall(bytes('query block by hash...', encoding='utf-8'))
     monitor = Monitor()
-    output = monitor.query_block_by_hash(block_hash)
-    conn.sendall(bytes(output, encoding='utf-8'))
+    try:
+        output = monitor.query_block_by_hash(block_hash)
+    except Exception as e:
+        conn.sendall(bytes('not found', encoding='utf-8'))
+    else:
+        conn.sendall(bytes(output, encoding='utf-8'))
     #time.sleep(2)
 
 def query_block_by_txid(conn, tx_id):
     print('query block by txid...')
     #conn.sendall(bytes('query block by transaction id...', encoding='utf-8'))
     monitor = Monitor()
-    output = monitor.query_block_by_txid(tx_id)
-    conn.sendall(bytes(output, encoding='utf-8'))
+    try:
+        output = monitor.query_block_by_txid(tx_id)
+    except Exception as err:
+        conn.sendall(bytes('not found', encoding='utf-8'))
+    else:
+        conn.sendall(bytes(output, encoding='utf-8'))
     #time.sleep(2)
 
 def query_transaction_by_txid(conn, tx_id):
     print('query transaction by txid...')
     #conn.sendall(bytes('query transaction by tx_id...', encoding='utf-8'))
     monitor = Monitor()
-    output = monitor.query_transaction_by_txid(tx_id)
-    conn.sendall(bytes(output, encoding='utf-8'))
+    try:
+        output = monitor.query_transaction_by_txid(tx_id)
+    except Exception as e:
+        conn.sendall(bytes('not found', encoding='utf-8'))
+    else:
+        conn.sendall(bytes(output, encoding='utf-8'))
     #time.sleep(2)
 
 def end_connection(conn):
@@ -232,63 +246,62 @@ def networking():
         #time.sleep(2)
 
         ## get these data from client...
-        orderer_num=1
+        orderer_num=3
         org_num=2
         peer_num=2
-        couchdb_num=0
-        ca_num=0
+        couchdb_num=1
+        ca_num=1
 
         if client_data == 'start':
             #install_software(conn)
             #pull_image(conn)
             #download_binary(conn)
-            #generate_config(conn)
-            #generate_material(conn)
+            generate_config(conn, orderer_num=orderer_num, org_num=org_num, peer_num=peer_num, couchdb_num=couchdb_num, ca_num=ca_num)
+            generate_material(conn, org_num=org_num)
+            generate_docker_compose(conn, orderer_num=orderer_num, org_num=org_num, peer_num=peer_num, couchdb_num=couchdb_num, ca_num=ca_num)
             yaml_up(conn)
-            create_channel(conn)
-            join_channel(conn)
-            install_chaincode(conn)
-            instantiate_chaincode(conn)
+            create_channel(conn, orderer_num=orderer_num)
+            join_channel(conn, org_num=org_num, peer_num=peer_num)
+            install_chaincode(conn, org_num=org_num, peer_num=peer_num)
+            instantiate_chaincode(conn, orderer_num=orderer_num)
 
 
         if client_data == 'software':
             install_software(conn)
 
-
         if client_data == 'image':
             pull_image(conn)
-
 
         if client_data == 'binary':
             download_binary(conn)
 
-
         if client_data == 'config':
-            generate_config(conn)
-
+            generate_config(conn, orderer_num=orderer_num, org_num=org_num, peer_num=peer_num, couchdb_num=couchdb_num, ca_num=ca_num)
 
         if client_data == 'material':
-            generate_material(conn)
+            generate_material(conn, org_num=org_num)
 
+        if client_data == 'docker-compose':
+            generate_docker_compose(conn, orderer_num=orderer_num, org_num=org_num, peer_num=peer_num, couchdb_num=couchdb_num, ca_num=ca_num)
 
         if client_data == 'build':
             yaml_up(conn)
 
 
         if client_data == 'createChannel':
-            create_channel(conn)
+            create_channel(conn, orderer_num=orderer_num)
 
 
         if client_data == 'joinChannel':
-            join_channel(conn)
+            join_channel(conn, org_num=org_num, peer_num=peer_num)
 
 
         if client_data == 'installChaincode':
-            install_chaincode(conn)
+            install_chaincode(conn, org_num=org_num, peer_num=peer_num)
 
 
         if client_data == 'instantiateChaincode':
-            instantiate_chaincode(conn)
+            instantiate_chaincode(conn, orderer_num=orderer_num)
 
 
         if client_data == 'queryChaincode':
@@ -318,25 +331,28 @@ def networking():
             query_info(conn)
 
         if client_data.startswith('blockHash'):
-            """\315\364\"==~\230\376\340\355Y\345\334\353\247r\367\237\034!\262\263\266\013\253\302\334,O\243\306#"""
-            h = client_data[11:]
+            print(client_data)
+            print(type(client_data))
+            h = client_data[9:]
             print(h)
-            block_hash = "\037\031\031\264rW\307\337\307\330=\331\247\317\242\315D\"\025\367\002T\341\265\3578\025\326\340\037\243\312"
-            query_block_by_hash(conn, block_hash)
+            block_hash = "\355\315\245\013\260\335\001\333@f\314)\273\021\322#V\243\352)X\024\326\020\363\300\343\267TR.5"
+            print(block_hash)
+            query_block_by_hash(conn, h)
+            #query_block_by_hash(conn, block_hash)
 
         if client_data.startswith('blockTxid'):
             print('in transaction')
-            tid = client_data[11:]
+            tid = client_data[9:]
             print(tid)
-            tx_id = "1244b10f878e87a701911c9b6f6e747b6e97833769cb4770dfb544cb9abe348d"
-            query_block_by_txid(conn, tx_id)
+            #tx_id = "1244b10f878e87a701911c9b6f6e747b6e97833769cb4770dfb544cb9abe348d"
+            query_block_by_txid(conn, tid)
 
         if client_data.startswith('transactionId'):
             print('in transaction')
             tid = client_data[13:]
             print(tid)
-            tx_id = "1244b10f878e87a701911c9b6f6e747b6e97833769cb4770dfb544cb9abe348d"
-            query_transaction_by_txid(conn, tx_id)
+            #tx_id = "1244b10f878e87a701911c9b6f6e747b6e97833769cb4770dfb544cb9abe348d"
+            query_transaction_by_txid(conn, tid)
 
 
 
