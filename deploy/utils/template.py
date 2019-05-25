@@ -481,9 +481,161 @@ def docker_compose_gen(orderer_num=1,org_num=1,peer_num=1,ca_num=0,couchdb_num=0
     f.write(version_config+'\n'+network_name_config+'\n'+services_config+'\n'+total_couchdb_config+total_ca_config+orderer_config+'\n'+total_peer_config+cli_config)
     f.close()
 
+def network_json_gen(orderer_num=1,org_num=1,peer_num=1,ca_num=0):
+    header_conf = '''{
+  "name":"sample-network",
+  "description":"Sample network contains 4 peers (2 orgs), 1 orderer and 2 cas for Python SDK testing",
+  "version":"0.1",
+  "client":{
+    "organization":"Org1",
+    "credentialStore":{
+      "path":"/tmp/hfc-kvs",
+      "cryptoStore":{
+        "path":"/tmp/hfc-cvs"
+      },
+      "wallet":"wallet-name"
+    }
+  },
+'''
+    organization_conf = '''  "organizations":{
+    "orderer.example.com": {
+      "mspid": "OrdererMSP",
+      "orderers": [
+        ORDERERS
+      ],
+      "users": {
+        "Admin": {
+          "cert": "/home/worker/graduate/crypto-config/ordererOrganizations/example.com/users/Admin@example.com/msp/signcerts/Admin@example.com-cert.pem",
+          "private_key": "/home/worker/graduate/crypto-config/ordererOrganizations/example.com/users/Admin@example.com/msp/keystore/ORDERERADMINKEY"}
+      }
+    },
+'''
+    orderers_conf = ''
+    if orderer_num == 1:
+        orderers_conf = '"orderer.example.com"'
+    else:
+        for i in range(1, orderer_num+1):
+            orderer_conf = ''
+            if i != orderer_num:
+                orderer_conf = '"orderer' + str(i) + '.example.com",\n'
+            else:
+                orderer_conf = '"orderer' + str(i) + '.example.com"\n'
+            orderers_conf += orderer_conf
+    organization_conf = organization_conf.replace('ORDERERS', orderers_conf)
+
+    orderer_admin_key_path = '/home/worker/graduate/crypto-config/ordererOrganizations/example.com/users/Admin@example.com/msp/keystore/'
+    orderer_admin_key = get_key_in_path(orderer_admin_key_path)
+    organization_conf = organization_conf.replace('ORDERERADMINKEY', orderer_admin_key)
+
+
+    org_conf = '''    "orgX.example.com":{
+      "mspid":"OrgXMSP",
+      "peers":[
+        "peer0.orgX.example.com",
+        "peer1.orgX.example.com"
+      ],
+      "users": {
+        "Admin": {
+          "cert": "/home/worker/graduate/crypto-config/peerOrganizations/orgX.example.com/users/Admin@orgX.example.com/msp/signcerts/Admin@orgX.example.com-cert.pem",
+          "private_key": "/home/worker/graduate/crypto-config/peerOrganizations/orgX.example.com/users/Admin@orgX.example.com/msp/keystore/ORGADMINKEY"
+        },
+        "User1": {
+          "cert": "/home/worker/graduate/crypto-config/peerOrganizations/orgX.example.com/users/User1@orgX.example.com/msp/signcerts/User1@orgX.example.com-cert.pem",
+          "private_key": "/home/worker/graduate/crypto-config/peerOrganizations/orgX.example.com/users/User1@orgX.example.com/msp/keystore/ORGUSERKEY"
+        }
+      }
+    }'''
+
+    total_org_conf = ''
+    for i in range(1, org_num+1):
+        org_admin_key_path = '/home/worker/graduate/crypto-config/peerOrganizations/org' + str(i) + '.example.com/users/Admin@org' + str(i) + '.example.com/msp/keystore/'
+        org_adimin_key = get_key_in_path(org_admin_key_path)
+        org_user_key_path = '/home/worker/graduate/crypto-config/peerOrganizations/org' + str(i) + '.example.com/users/User1@org' + str(i) + '.example.com/msp/keystore/'
+        org_user_key = get_key_in_path(org_user_key_path)
+    
+        org_conf_tmp = org_conf.replace('X', str(i))
+        org_conf_tmp = org_conf_tmp.replace('ORGADMINKEY', org_adimin_key)
+        org_conf_tmp = org_conf_tmp.replace('ORGUSERKEY', org_user_key)
+        if i != org_num:
+            total_org_conf += org_conf_tmp + ',\n'
+        else:
+            total_org_conf += org_conf_tmp + '\n'
+
+    orderer_path_conf = ''
+    if orderer_num > 1:
+        orderer_path_conf = '''
+  },
+  "orderers":{
+    "orderer.example.com":{
+      "url":"localhost:7050",
+      "grpcOptions":{
+        "grpc.ssl_target_name_override":"orderer.example.com",
+        "grpc-max-send-message-length":15
+      },
+      "tlsCACerts":{
+        "path":"/home/worker/graduate/crypto-config/ordererOrganizations/example.com/tlsca/tlsca.example.com-cert.pem"
+      }
+    }
+  },
+'''
+    elif orderer_num == 1:
+        orderer_path_conf = '''
+  },
+  "orderers":{
+    "orderer1.example.com":{
+      "url":"localhost:7050",
+      "grpcOptions":{
+        "grpc.ssl_target_name_override":"orderer1.example.com",
+        "grpc-max-send-message-length":15
+      },
+      "tlsCACerts":{
+        "path":"/home/worker/graduate/crypto-config/ordererOrganizations/example.com/tlsca/tlsca.example.com-cert.pem"
+      }
+    }
+  },
+  "peers":{
+'''
+    peer_conf = '''"peerX.orgY.example.com":{
+      "url":"localhost:PORT1",
+      "eventUrl":"localhost:PORT2",
+      "grpcOptions":{
+        "grpc.http2.keepalive_time":15
+      },
+      "tlsCACerts":{
+        "path":"/home/worker/graduate/crypto-config/peerOrganizations/orgY.example.com/peers/peerX.orgY.example.com/msp/tlscacerts/tlsca.orgY.example.com-cert.pem"
+      }
+    }'''
+    total_peer_conf = ''
+    for x in range(0,peer_num):  # each org has x peers
+        for y in range(1,org_num+1):  # total y orgs
+            peer_conf_tmp = peer_conf.replace('X', str(x))
+            peer_conf_tmp = peer_conf_tmp.replace('Y', str(y))
+            peer_conf_tmp = peer_conf_tmp.replace('PORT1', str(7051+((y-1)*peer_num+x)*1000))
+            peer_conf_tmp = peer_conf_tmp.replace('PORT2', str(7053+((y-1)*peer_num+x)*1000))
+            if x == peer_num-1 and y == org_num:
+                total_peer_conf += peer_conf_tmp
+            else:
+                total_peer_conf += (peer_conf_tmp + ',\n')
+
+    tailer_conf = '''
+  }
+}
+'''            
+
+    total_all_conf = header_conf + organization_conf + total_org_conf + orderer_path_conf + total_peer_conf + tailer_conf
+    f = open('network.json', 'w')
+    f.write(total_all_conf)
+    f.close()
+
+def get_key_in_path(path):
+    files = os.listdir(path)
+    for f in files:
+        if f.endswith('_sk'):
+            return f
+            
 
 if __name__ == '__main__':
-    a = raw_input('crypto-config(1) or configtx(2) or docker-compose(3)? ')
+    a = raw_input('crypto-config(1) or configtx(2) or docker-compose(3) or network.json(4)? ')
     if a == '1':
         crypto_config_gen(orderer_num=3, org_num=2, peer_num=2, couchdb_num=0, ca_num=0)
     elif a == '2':
@@ -501,3 +653,5 @@ if __name__ == '__main__':
         #docker_compose_gen(orderer_num=1, org_num=2, peer_num=2, couchdb_num=1)
         # one orderer, two Orgs, two peers, one couchdb, one CA
         docker_compose_gen(orderer_num=3, org_num=2, peer_num=2, couchdb_num=0, ca_num=0)
+    elif a == '4':
+        network_json_gen(orderer_num=1, org_num=2, peer_num=2, ca_num=0)

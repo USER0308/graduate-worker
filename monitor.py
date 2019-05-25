@@ -6,6 +6,7 @@ class Monitor:
     cli = Client(net_profile='network.json')
     org1_admin = cli.get_user(org_name='org1.example.com', name='Admin')
     channel = cli.new_channel('mychannel')
+        
 
     def query_installed_chaincode(self):
         installed_chaincode = self.cli.query_installed_chaincodes(requestor=self.org1_admin,peer_names=['peer0.org1.example.com'])

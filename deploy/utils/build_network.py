@@ -61,6 +61,10 @@ def clean_config():
     run_by_system(command, True)
     command = """rm -fr ./crypto-config/*"""
     run_by_system(command, True)
+    command = """rm -fr ./configtx.yaml ./crypto-config.yaml ./docker-compose.yaml"""
+    run_by_system(command, True)
+    if os.path.exists('./network.json'):
+        os.remove('./network.json')
 
 def crypto_material_gen():  ## output normally
     command = """./bin/cryptogen generate --config=./crypto-config.yaml"""
@@ -238,25 +242,23 @@ def instantiate_chaincode(orderer_num=1):
     exit_code, output = cli.exec_run(cmd=command)
     return exit_code, output
 
-def invoke_chaincode():
-    pass
+def invoke_chaincode(args):
+    print(args)
+    client = docker.from_env()
+    cli = client.containers.get('cli')
+    command = """peer chaincode invoke -C mychannel -n mycc -v 1.0 -c '""" + args + """' """
+    print(command)
+    exit_code, output = cli.exec_run(cmd=command)
+    return exit_code, output
 
-def query_chaincode():
-#    command = r'''docker exec cli peer chaincode query -C mychannel -n mycc -v 1.0 -c '{"Args":["query","a"]}' '''
-#    command_log, error_log = run_by_subprocess(command, False)
-#    log_debug(command_log)
-#    log_debug(error_log)
-#    command_log = command_log.strip()
-#    error_log = error_log.strip()
-#    if error_log:
-#        return command_log, error_log
-#    return command_log, ''
+def query_chaincode(args):
 
     client = docker.from_env()
     cli = client.containers.get('cli')
-    command = r'''peer chaincode query -C mychannel -n mycc -v 1.0 -c '{"Args":["query","a"]}' '''
+    command = """peer chaincode query -C mychannel -n mycc -v 1.0 -c '""" + args + """' """ 
     exit_code, output = cli.exec_run(cmd=command)
     return exit_code, output
+
 def yaml_up():
     command = """CHANNEL_NAME=mychannel TIMEOUT=60 docker-compose -f docker-compose.yaml up -d"""
     command_log, error_log = run_by_subprocess(command, False)
@@ -287,6 +289,11 @@ def network_restart():
     if os.path.exists(p):
         os.remove(p)
     network_up()
+
+def network_stop():
+    command = """docker stop $(docker ps -q)"""
+    run_by_system(command, False)
+
 
 def network_clean():
     command = """docker stop $(docker ps -q)"""

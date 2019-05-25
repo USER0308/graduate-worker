@@ -4,8 +4,15 @@
 import socket
 import time
 import docker
+import json
 from deploy.utils import build_network, software_dl, template, utils
 from monitor import Monitor
+import monitordk
+orderer_num=3
+org_num=2
+peer_num=2
+couchdb_num=1
+ca_num=1
 
 def install_software(conn):
     print('install software...')
@@ -53,38 +60,41 @@ def generate_config(conn, orderer_num=1, org_num=2, peer_num=2, couchdb_num=1, c
     print('generate config...')
     conn.sendall(bytes('generate crypto-config...', encoding='utf-8'))
     template.crypto_config_gen(orderer_num, org_num, peer_num, couchdb_num, ca_num)
-    time.sleep(2)
+    #time.sleep(2)
     conn.sendall(bytes('generate configtx...', encoding='utf-8'))
     template.configtx_gen(orderer_num, org_num, peer_num, couchdb_num, ca_num)
-    time.sleep(2)
+    #time.sleep(2)
 
 def generate_docker_compose(conn, orderer_num=1, org_num=2, peer_num=2, couchdb_num=1, ca_num=1):
     conn.sendall(bytes('generate docker-compose.yaml...', encoding='utf-8'))
     template.docker_compose_gen(orderer_num, org_num, peer_num, couchdb_num, ca_num)
-    time.sleep(2)
+    #time.sleep(2)
+
+def generate_network_json(conn, orderer_num=1, org_num=2, peer_num=2, ca_num=0):
+    template.network_json_gen(orderer_num, org_num, peer_num, ca_num)
 
 def generate_material(conn, org_num=2):
     print('generate_material...')
     conn.sendall(bytes('generate crypto_material...', encoding='utf-8'))
     build_network.prepare()
     build_network.crypto_material_gen()
-    time.sleep(2)
+    #time.sleep(2)
     conn.sendall(bytes('orderer_genesis_block', encoding='utf-8'))
     build_network.orderer_genesis_block_gen()
-    time.sleep(2)
+    #time.sleep(2)
     conn.sendall(bytes('channel_config', encoding='utf-8'))
     build_network.channel_config_trans_gen()
-    time.sleep(2)
+    #time.sleep(2)
     conn.sendall(bytes('anchor_peer_config', encoding='utf-8'))
     build_network.anchor_peer_config_gen(org_num)
-    time.sleep(2)
+    #time.sleep(2)
 
 def yaml_up(conn):
     conn.sendall(bytes('building network...', encoding='utf-8'))
     build_network.yaml_up()
     print('network up, sleep for 20s')
     conn.sendall(bytes('network up, sleep for 20s', encoding='utf-8'))
-    time.sleep(20)
+    time.sleep(40)
 
 def create_channel(conn, orderer_num=1):
     print('create channel...')
@@ -96,7 +106,7 @@ def create_channel(conn, orderer_num=1):
     else:
         conn.sendall(bytes("create channel faild\n\n", encoding='utf-8'))
         conn.sendall(output)
-    time.sleep(2)
+    #time.sleep(2)
 
 def join_channel(conn, peer_num=2, org_num=2):
     print('join channel...')
@@ -109,7 +119,7 @@ def join_channel(conn, peer_num=2, org_num=2):
         else:
             conn.sendall(bytes("join channel faild\n\n", encoding='utf-8'))
             conn.sendall(result[1])
-    time.sleep(2)
+    #time.sleep(2)
 
 def install_chaincode(conn, peer_num=2, org_num=2):
     print('install chaincode...')
@@ -122,7 +132,7 @@ def install_chaincode(conn, peer_num=2, org_num=2):
         else:
             conn.sendall(bytes("install chaincode faild\n\n", encoding='utf-8'))
             conn.sendall(result[1])
-    time.sleep(2)
+    #time.sleep(2)
 
 def instantiate_chaincode(conn, orderer_num=1):
     print('instantiate chaincode...')
@@ -134,19 +144,7 @@ def instantiate_chaincode(conn, orderer_num=1):
     else:
         conn.sendall(bytes("instantiate chaincode faild\n\n", encoding='utf-8'))
         conn.sendall(output)
-    time.sleep(2)
-
-def query_chaincode(conn):
-    print('query chaincode...')
-    conn.sendall(bytes('query chaincode...', encoding='utf-8'))
-    exit_code, output = build_network.query_chaincode()
-    if exit_code == 0:
-        conn.sendall(bytes("query success\n\n", encoding='utf-8'))
-        conn.sendall(output)
-    else:
-        conn.sendall(bytes("query faild\n\n", encoding='utf-8'))
-        conn.sendall(output)
-    time.sleep(2)
+    #time.sleep(2)
 
 def query_installed_cc(conn):
     print('query installed chaincode...')
@@ -224,6 +222,48 @@ def query_transaction_by_txid(conn, tx_id):
         conn.sendall(bytes(output, encoding='utf-8'))
     #time.sleep(2)
 
+def network_stop(conn):
+    build_network.network_stop()
+    conn.sendall(bytes('stopped', encoding='utf-8'))
+
+def network_clear(conn):
+    build_network.network_clean()
+    conn.sendall(bytes('cleared', encoding='utf-8'))
+
+def read_data_from_json():
+    global orderer_num
+    global org_num
+    global peer_num
+    global couchdb_num
+    global ca_num
+
+    print(orderer_num)
+    f = open('num.txt', 'r')
+    num_json = json.load(f)
+    f.close()
+    print(num_json['orderer_num'])
+    orderer_num = int(num_json['orderer_num'])
+    org_num = int(num_json['org_num'])
+    peer_num = int(num_json['peer_num'])
+    couchdb_num = int(num_json['couchdb_num'])
+    ca_num = int(num_json['ca_num'])
+    print(orderer_num)
+
+def write_data_to_json(conn, num_json_str):
+    num_json = json.loads(num_json_str)
+    f = open('num.txt', 'w')
+    json.dump(num_json, f)
+    f.close()
+
+def get_os_info(conn):
+    info_json_str = monitordk.get_os_info()
+    conn.sendall(bytes(info_json_str, encoding='utf-8'))
+
+def get_docker_info(conn):
+    docker_status = monitordk.get_docker_info()
+    conn.sendall(bytes(docker_status, encoding='utf-8'))
+
+
 def end_connection(conn):
     print('end')
     conn.sendall(bytes('end', encoding='utf-8'))
@@ -231,6 +271,7 @@ def end_connection(conn):
     conn.close()
 
 def networking():
+
     sk = socket.socket()
     sk.bind(('', 1347))
     sk.listen(3)
@@ -246,11 +287,10 @@ def networking():
         #time.sleep(2)
 
         ## get these data from client...
-        orderer_num=3
-        org_num=2
-        peer_num=2
-        couchdb_num=1
-        ca_num=1
+        if client_data.startswith('num'):
+            num_json_str = client_data[3:]
+            write_data_to_json(conn, num_json_str)
+            read_data_from_json()
 
         if client_data == 'start':
             #install_software(conn)
@@ -259,6 +299,7 @@ def networking():
             generate_config(conn, orderer_num=orderer_num, org_num=org_num, peer_num=peer_num, couchdb_num=couchdb_num, ca_num=ca_num)
             generate_material(conn, org_num=org_num)
             generate_docker_compose(conn, orderer_num=orderer_num, org_num=org_num, peer_num=peer_num, couchdb_num=couchdb_num, ca_num=ca_num)
+            generate_network_json(conn, orderer_num=orderer_num, org_num=org_num, peer_num=peer_num, ca_num=ca_num)
             yaml_up(conn)
             create_channel(conn, orderer_num=orderer_num)
             join_channel(conn, org_num=org_num, peer_num=peer_num)
@@ -283,6 +324,7 @@ def networking():
 
         if client_data == 'docker-compose':
             generate_docker_compose(conn, orderer_num=orderer_num, org_num=org_num, peer_num=peer_num, couchdb_num=couchdb_num, ca_num=ca_num)
+            generate_network_json(conn, orderer_num=orderer_num, org_num=org_num, peer_num=peer_num, ca_num=ca_num)
 
         if client_data == 'build':
             yaml_up(conn)
@@ -304,9 +346,11 @@ def networking():
             instantiate_chaincode(conn, orderer_num=orderer_num)
 
 
-        if client_data == 'queryChaincode':
-            query_chaincode(conn)
+        if client_data == 'stop':
+            network_stop(conn)
 
+        if client_data == 'clear':
+            network_clear(conn)
 
 #        print('invoke chaincode...')
 #        conn.sendall(bytes('invoke chaincode...', encoding='utf-8'))
@@ -354,7 +398,22 @@ def networking():
             #tx_id = "1244b10f878e87a701911c9b6f6e747b6e97833769cb4770dfb544cb9abe348d"
             query_transaction_by_txid(conn, tid)
 
+        if client_data.startswith('queryArgsChaincode'):
+            args = client_data[18:]
+            exit_code, output = build_network.query_chaincode(args)
+            conn.sendall(output)
 
+        if client_data.startswith('invokeArgsChaincode'):
+            args = client_data[19:]
+            print(args)
+            exit_code, output = build_network.invoke_chaincode(args)
+            conn.sendall(output)
+
+        if client_data == 'getOSInfo':
+            get_os_info(conn)
+
+        if client_data == 'getDockerInfo':
+            get_docker_info(conn)
 
         end_connection(conn)
 
