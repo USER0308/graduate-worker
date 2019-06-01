@@ -249,6 +249,13 @@ def read_data_from_json():
     ca_num = int(num_json['ca_num'])
     print(orderer_num)
 
+def get_blockchain_info(conn):
+    f = open('num.txt', 'r')
+    num_str = f.read()
+    f.close()
+    print(num_str)
+    conn.sendall(bytes(num_str ,encoding='utf-8'))
+
 def write_data_to_json(conn, num_json_str):
     num_json = json.loads(num_json_str)
     f = open('num.txt', 'w')
@@ -373,6 +380,9 @@ def networking():
 
         if client_data == 'queryInfo':
             query_info(conn)
+        
+        if client_data == 'blockchainInfo':
+            get_blockchain_info(conn)
 
         if client_data.startswith('blockHash'):
             print(client_data)
@@ -407,6 +417,7 @@ def networking():
             args = client_data[19:]
             print(args)
             exit_code, output = build_network.invoke_chaincode(args)
+            print(output)
             conn.sendall(output)
 
         if client_data == 'getOSInfo':
