@@ -1,0 +1,1 @@
+{"org_num": "2", "couchdb_num": "0", "ca_num": "0", "peer_num": "2", "orderer_num": "1"}
